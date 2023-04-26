@@ -1,7 +1,7 @@
 import asyncio
 import time
 import random
-# import requests
+import requests
 from pyppeteer import launch
 from bs4 import BeautifulSoup
 
@@ -14,41 +14,55 @@ class moodleLogin:
     def __init__(self, username, password):
         self.username = username
         self.password = password
-        self.page = None
+        self.session = requests.Session()
+        
+
 
     # 登入
-    async def getLoginPage(self):
-        browser = await launch(headless=False)  # 開啟瀏覽器，設定headless=False可以顯示瀏覽器視窗
-        page = await browser.newPage()  # 創建一個新的頁面
-        await page.goto(moodleLogin.login_url)  # 前往登入頁面
-        return page
-    
-    async def getLogonCookie(self, page):
-        # 輸入用戶名和密碼, {'delay': input_time_random() - 50}
-        await page.type('#username', username)
-        await page.type('#password',  password)
+    async def login(self):
+        # 開啟瀏覽器，設定headless=False可以顯示瀏覽器視窗
+        browser = await launch(headless=False)
 
+        # 創建一個新的頁面 
+        page = await browser.newPage()
+
+        # 前往登入頁面
+        await page.goto(moodleLogin.login_url)  
+
+        # 輸入帳號密碼
+        await page.type('#username', self.username)
+        await page.type('#password', self.password)
+
+        # 模擬點擊登入按鈕
         await page.click('#loginbtn')
-        await asyncio.sleep(3)
         
-        # 取的登入後的 cookies
-        cookies_list = await page.cookies()
+        # 等待頁面載入完成
+        await asyncio.sleep(1)
         
-        content = await page.content()
-        return cookies_list, content
+        # 檢查是否登入成功
+        # 取的pypeeter的html
+        html = await page.content()
+        soup = BeautifulSoup(html, 'html.parser')
+        div = soup.find('div', {'class': 'alert alert-danger', 'role': 'alert'})
+        if div == "登入無效，請重試":
+            print('登入失敗')
+            return False
 
+        # pypeeter的session給requests用
+        cookies_list = await page.cookies()
+        cookies_dict = {cookie["name"]: cookie["value"] for cookie in cookies_list}
+        self.session.cookies.update(cookies_dict)
+
+        # 關閉瀏覽器
+        await browser.close()
+        return True
+
+        
 
 
 def input_time_random():
     return random.randint(100, 151)
 
-username = "B10915003"
-password = "A9%t376149"
-mylogin = moodleLogin(username, password)
 
-page = asyncio.get_event_loop().run_until_complete(mylogin.getLoginPage())
-cookies, content = asyncio.get_event_loop().run_until_complete(mylogin.getLogonCookie(page))
-#暫停
-print(cookies)
-#print(content)
-input("Press Enter to continue...")
+# mymoodle = moodleLogin('B10915003', "A9%t347169")
+# asyncio.get_event_loop().run_until_complete(mymoodle.login())
