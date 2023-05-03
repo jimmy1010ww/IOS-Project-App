@@ -39,12 +39,14 @@ def hello():
 def check_moodle_login():
     #如果是POST請求，從請求獲取json來進行登入
     if request.method == 'POST':
+        #印出請求方式
         flask_logger.debug("[Receive] POST request]")
+        
+        #印出Clien IP和Port
         flask_logger.info("Client IP : {}".format(str(request.remote_addr)))
         flask_logger.info("Clinet Port : {}".format(str(request.environ['REMOTE_PORT'])))
 
         # 取得新的 userid
-
         if userid_list == []:
             userid_list.append(0)
         else:   
@@ -61,18 +63,21 @@ def check_moodle_login():
         
         #宣告moodleLogin物件
         current_moodleBot = MoodleBot(username, password, userid_list[-1])
-        moodleBot_list.append(current_moodleBot)
+        
         #如果登入成功，回傳json
-        if moodleBot_list[userid_list[-1]].login():
+        if current_moodleBot.login():
             flask_logger.info("Login Success")
             flask_logger.info("userid : {}".format(str(userid_list[-1])))
             flask_logger.debug("moodleBot_list length : {}".format(str(len(moodleBot_list))))
 
+            # 登入成功，新增 moodleBot 物件到 moodleBot_list
+            moodleBot_list.append(current_moodleBot)
             return_data = jsonify({'result': 'success',
                             'userid': str(userid_list[-1])})
             flask_logger.debug("return_data : {}".format(return_data.json))
             return return_data
         else:
+            userid_list.remove(userid_list[-1])
             flask_logger.warning("Login Failed")
             flask_logger.debug("moodleBot_list length : {}".format(str(len(moodleBot_list))))
             return jsonify({'result': 'fail'})
