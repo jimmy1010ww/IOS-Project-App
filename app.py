@@ -1,5 +1,6 @@
 
 import logging
+import colorlog
 import random
 from flask import Flask, render_template, request
 from flask import jsonify
@@ -13,7 +14,17 @@ app = Flask(__name__)
 
 flask_logger = logging.getLogger('flask')
 flask_logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('[Flask Logger]%(asctime)s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+formatter = colorlog.ColoredFormatter(
+            '[Flask Logger] %(asctime)s %(log_color)s%(levelname)-8s%(reset)s %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
+            log_colors={
+                'DEBUG': 'cyan',
+                'INFO': 'green',
+                'WARNING': 'yellow',
+                'ERROR': 'red',
+                'CRITICAL': 'red,bg_white',
+            }
+        )
 console_handler = logging.StreamHandler()
 console_handler.formatter = formatter
 console_handler.setLevel(logging.DEBUG)
@@ -39,8 +50,7 @@ def hello():
 def check_moodle_login():
     #如果是POST請求，從請求獲取json來進行登入
     if request.method == 'POST':
-        #印出請求方式
-        flask_logger.debug("[Receive] POST request]")
+        flask_logger.debug("[POST] /api/check_moodle_login]")
         
         #印出Clien IP和Port
         flask_logger.info("Client IP : {}".format(str(request.remote_addr)))
@@ -72,7 +82,7 @@ def check_moodle_login():
 
             # 登入成功，新增 moodleBot 物件到 moodleBot_list
             moodleBot_list.append(current_moodleBot)
-            return_data = jsonify({'result': 'success',
+            return_data = jsonify({'result': 'successed',
                             'userid': str(userid_list[-1])})
             flask_logger.debug("return_data : {}".format(return_data.json))
             return return_data
@@ -80,11 +90,50 @@ def check_moodle_login():
             userid_list.remove(userid_list[-1])
             flask_logger.warning("Login Failed")
             flask_logger.debug("moodleBot_list length : {}".format(str(len(moodleBot_list))))
-            return jsonify({'result': 'fail'})
+            return jsonify({'result': 'failed'})
     #如果不是POST請求，回傳錯誤
     else:
         flask_logger.warning("[Receive] invalid request method")
-        return jsonify({'result': 'invalid request method'})
-    
+        return jsonify({'result': 'failed', 'reason': 'invalid request method'})
+
+@app.route('/api/get_courses', methods=['POST'])
+def get_enrolled_courses_by_timeline_classification():
+    if request.method == 'POST':
+        #印出請求方式
+        flask_logger.debug("[POST] /api/get_courses")
+        
+        #印出Clien IP和Port
+        flask_logger.info("Client IP : {}".format(str(request.remote_addr)))
+        flask_logger.info("Clinet Port : {}".format(str(request.environ['REMOTE_PORT'])))
+
+        #從請求獲取json
+        data = request.get_json()
+        userid = data['userid']
+        state = data['state']
+        
+        # 檢查 post data 是否合法
+        if userid == None or state == None:
+            flask_logger.warning("post data is not complete")
+            return jsonify({'result': 'failed', 'reason': 'post data is not complete'})
+        elif state not in ['past', 'inprogress']:
+            flask_logger.warning("state error")
+            return jsonify({'result': 'failed', 'reason': 'state error'})
+
+        # 檢查 userid 是否存在
+        if int(userid) not in userid_list:
+            flask_logger.warning("userid : {} not found".format(str(userid)))
+            return jsonify({'result': 'failed', 'reason': 'userID not found'})
+        
+        current_moodleBot = moodleBot_list[int(userid)]
+        ret, course_list = current_moodleBot.get_enrolled_courses_by_timeline_classification(state=state)
+        if ret:
+            # 插入一個 result = success 的 dict
+            course_list.insert(0, {'result': 'success'})
+            return jsonify(course_list)
+        else:
+            return jsonify({'result': 'fail'})
+
 if __name__ == '__main__':
+    # clear the terminal
+    print(chr(27) + "[2J")
     app.run(debug=True)
