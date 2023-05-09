@@ -4,7 +4,7 @@ import colorlog
 from flask import Flask, render_template, request as flask_request
 from flask import jsonify
 from moodle_bot import MoodleBot
-from post_parameter import PostParameter as post_parameter
+from app_json_parameter import app_json_parameter as json_parameter
 import app_sever_exception as server_exception
 
 app = Flask(__name__)
@@ -36,13 +36,13 @@ userid_list = []
 
 # 取得處理 exception 的 json return
 def get_exception_json_return(_message):
-    return_json = jsonify({post_parameter.RESULT: post_parameter.RESULT_FAILED, post_parameter.MESSAGE: _message})
+    return_json = jsonify({json_parameter.RESULT: json_parameter.RESULT_FAILED, json_parameter.MESSAGE: _message})
     flask_logger.info("Return Json : {}".format(return_json))
     return return_json
 
 # 取得回傳 sucess 的 json return
 def get_success_json_return(_message):
-    return_json = jsonify({post_parameter.RESULT: post_parameter.RESULT_SUCCESS, post_parameter.MESSAGE: _message})
+    return_json = jsonify({json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.MESSAGE: _message})
     flask_logger.info("Return Json : {}".format(return_json))
     return return_json
 
@@ -135,10 +135,10 @@ def check_userid():
                 raise server_exception.InvalidReceiveData("Data is None!")
 
             # 檢查 userid 是否存在
-            if check_userid_exist(data[post_parameter.USERID]):
-                return get_success_json_return("Userid: {} exist!".format(data[post_parameter.USERID]))
+            if check_userid_exist(data[json_parameter.USERID]):
+                return get_success_json_return("Userid: {} exist!".format(data[json_parameter.USERID]))
             else:
-                raise server_exception.UserIDNotExist(data[post_parameter.USERID])
+                raise server_exception.UserIDNotExist(data[json_parameter.USERID])
         else:
             raise server_exception.UserIDNotExist()
     
@@ -173,8 +173,8 @@ def check_moodle_login():
                 raise server_exception.InvalidReceiveData("Data is None!")
 
             #從json中獲取帳號密碼
-            username = data[post_parameter.USERNAME]
-            password = data[post_parameter.PASSWORD]
+            username = data[json_parameter.USERNAME]
+            password = data[json_parameter.PASSWORD]
             flask_logger.info("username : {} password: {}".format(str(username), str(password)))
             
             # 產生新的 userid
@@ -191,7 +191,7 @@ def check_moodle_login():
 
                 # 登入成功，新增 moodleBot 物件到 moodleBot_list
                 moodleBot_list.append(current_moodleBot)
-                return_data = jsonify({post_parameter.RESULT: post_parameter.RESULT_SUCCESS, post_parameter.USERID: str(current_moodleBot.bot_id)})
+                return_data = jsonify({json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.USERID: str(current_moodleBot.bot_id)})
                 flask_logger.debug("return_data : {}".format(return_data.json))
                 return return_data
             else:
@@ -229,9 +229,9 @@ def get_courses():
                 raise server_exception.InvalidReceiveData("Data is None!")
             
             # 讀取 post data
-            userid = int(data[post_parameter.USERID])
-            classification = data[post_parameter.CLASSIFICATION]
-            sort = data[post_parameter.SORT]
+            userid = int(data[json_parameter.USERID])
+            classification = data[json_parameter.CLASSIFICATION]
+            sort = data[json_parameter.SORT]
 
             # 檢查 post data
             if classification not in ['past', 'inprogress']:
@@ -255,8 +255,8 @@ def get_courses():
             # 如果成功取得課程資訊
             if ret:
                 # 插入一個 result = success 的 dict
-                return_data_list.append({post_parameter.RESULT: post_parameter.RESULT_SUCCESS})
-                return_data_list.append({post_parameter.COURSES: course_list})
+                return_data_list.append({json_parameter.RESULT: json_parameter.RESULT_SUCCESS})
+                return_data_list.append({json_parameter.DATA: course_list})
                 return jsonify(return_data_list)
             else:
                 raise server_exception.MoodleBotError("Get courses failed")
@@ -305,7 +305,11 @@ def get_course_page():
             current_moodleBot = moodleBot_list[userid]
 
             # 取得單個課程頁面
-            current_moodleBot.get_course_page(courseid)
+            ret, data = current_moodleBot.get_course_page(courseid)
+
+            if ret:
+                return_data = {json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.COURSEID: courseid, json_parameter.DATA: data}
+                return jsonify(return_data)
         else:
             raise server_exception.InvalidRequestMethod()
     except server_exception.MoodleBotError as e:

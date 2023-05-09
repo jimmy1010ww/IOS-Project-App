@@ -273,40 +273,95 @@ class MoodleBot:
             return False, None
 
     def get_course_page(self, course_id:int):
-        
-        # 設定 session cookie
-        self.set_session_cookie()
+        try:
+            # 設定 session cookie
+            self.set_session_cookie()
 
-        # 設定 header
-        headers = {
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Connection": "keep-alive",
-            "Host": "moodle2.ntust.edu.tw",
-            "Referer": "https://moodle2.ntust.edu.tw/my/",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "same-origin",
-            "Sec-Fetch-User": "?1",
-            "Upgrade-Insecure-Requests": "1",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
-        }
+            return_json_data = {
+                "week_list" : []
+            }
 
-        response = self.session.get(url=self.make_course_page_url(course_id), headers=headers)
-        # bs4 解析
-        # 解析內容 (轉為string)
-        content = response.content.decode()
-        # 把string轉為hmtl node tree，回傳根節點
-        html = lxml.etree.HTML(content)
-        week_list = html.xpath("//*[@id=\"region-main\"]/div/div/div/div/ul")
-        for week in week_list:
-            week.
+            # 設定 header
+            headers = {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+                "Connection": "keep-alive",
+                "Host": "moodle2.ntust.edu.tw",
+                "Referer": "https://moodle2.ntust.edu.tw/my/",
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "same-origin",
+                "Sec-Fetch-User": "?1",
+                "Upgrade-Insecure-Requests": "1",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
+            }
 
+            response = self.session.get(url=self.make_course_page_url(course_id), headers=headers)
+            
+            # bs4 解析
+            # 解析內容 (轉為string)
+            content = response.content.decode()
+            soup = BeautifulSoup(content, 'html.parser')
+            
+            for li in soup.find('ul', class_='weeks').find_all('li', class_ = 'section main clearfix'):
+                
+                single_week = {
+                    "week" : "",
+                    "section" : []
+                }
 
-# def test():
-#     bot = MoodleBot("b10915003", "A9%t376149", 1)
-#     bot.login()
-#     bot.get_enrolled_courses_by_timeline_classification()
-#     input("Press Enter to continue...")
-# test()
+                content = li.find('div', class_='content')
+                current_week = content.find('h3').find('span').text
+                self.logger.info("WEEK: {}\n".format(current_week))
+
+                single_week["week"] = current_week
+
+                try:
+                    section = content.find('ul', class_ = 'section img-text')
+                    for item in section:    
+                        section_data = {
+                            "name" : "",
+                            "url" : "",
+                            "icon_url" : ""
+                        }
+                        
+                        url = item.find('a')['href']
+                        icon_url = item.find('img')['src']
+                        name = item.find('span', class_ = 'instancename').text
+
+                        self.logger.info("url: {}".format(url))
+                        self.logger.info("icon_url: {}".format(icon_url))
+                        self.logger.info("name: {}\n".format(name))
+
+                        if "mod/assign" in url:
+                            self.logger.info("need scrapy")
+
+                        section_data["name"] = name
+                        section_data["url"] = url
+                        section_data["icon_url"] = icon_url
+                        single_week["section"].append(section_data)
+                except Exception as e:
+                    self.logger.warning(str(e))
+                    single_week["section"].append("None")
+
+                return_json_data["week_list"].append(single_week)
+                # self.logger.info("li: {}\n".format(li))
+
+            # for week in return_json_data["data"]:
+            #     print('\n')
+            #     self.logger.info("week: {}".format(week["week"]))
+            #     index = 0
+            #     for section in week["section"]:
+            #         self.logger.info("{}. ".format(index))
+            #         self.logger.info("name: {}".format(section["name"]))
+            #         self.logger.info("url: {}".format(section["url"]))
+            #         self.logger.info("icon_url: {}".format(section["icon_url"]))
+            #         index += 1
+            return True, return_json_data
+        except Exception as e:
+            self.logger.warning(str(e))
+            return False, None
+
+    # def get_assaign_page(url:str):
+    #     //

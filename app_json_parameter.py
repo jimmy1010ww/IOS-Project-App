@@ -1,4 +1,4 @@
-class PostParameter:
+class app_json_parameter:
     USERID = 'userid'
     USERNAME = 'username'
     PASSWORD = 'password'
@@ -10,3 +10,9 @@ class PostParameter:
     CLASSIFICATION = 'classification'
     SORT = 'sort'
     COURSES = "courses"
+    DATA = 'data'
+    # course page return json 
+    course_page_json_template = {
+        RESULT: '',
+    }
+    
