@@ -91,7 +91,8 @@ def test():
             current_moodleBot = MoodleBot("B10915003", "A9%t376149", 0, headless=True)
             current_moodleBot.login()
             current_moodleBot.get_enrolled_courses_by_timeline_classification()
-            current_moodleBot.get_course_page(4932)
+            # current_moodleBot.get_course_page(4932)
+            current_moodleBot.get_assaign_page("https://moodle2.ntust.edu.tw/mod/assign/view.php?id=89948")
             return get_success_json_return("Running Test!")
         else :
             raise server_exception.InvalidRequestMethod()
@@ -181,7 +182,7 @@ def check_moodle_login():
             current_userid = generate_userid()
 
             #宣告moodleLogin物件
-            current_moodleBot = MoodleBot(username, password, current_userid, headless=False)
+            current_moodleBot = MoodleBot(username, password, current_userid, headless=True)
             
             #如果登入成功，回傳json
             if current_moodleBot.login():
@@ -254,9 +255,7 @@ def get_courses():
             
             # 如果成功取得課程資訊
             if ret:
-                # 插入一個 result = success 的 dict
-                return_data_list.append({json_parameter.RESULT: json_parameter.RESULT_SUCCESS})
-                return_data_list.append({json_parameter.DATA: course_list})
+                return_data_list = {json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.DATA: course_list }
                 return jsonify(return_data_list)
             else:
                 raise server_exception.MoodleBotError("Get courses failed")

@@ -334,8 +334,9 @@ class MoodleBot:
                         self.logger.info("icon_url: {}".format(icon_url))
                         self.logger.info("name: {}\n".format(name))
 
-                        if "mod/assign" in url:
-                            self.logger.info("need scrapy")
+
+                        # if "mod/assign" in url:
+                        #     assignment_data = self.get_assaign_page(url)
 
                         section_data["name"] = name
                         section_data["url"] = url
@@ -363,5 +364,31 @@ class MoodleBot:
             self.logger.warning(str(e))
             return False, None
 
-    # def get_assaign_page(url:str):
-    #     //
+    def get_assaign_page(self, url:str):
+
+         # 設定 header
+        headers = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Connection": "keep-alive",
+            "Host": "moodle2.ntust.edu.tw",
+            "Referer": "https://moodle2.ntust.edu.tw/my/",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
+        }
+
+        response = self.session.get(url=url, headers=headers)
+        
+        # bs4 解析
+        # 解析內容 (轉為string)
+        content = response.content.decode()
+        soup = BeautifulSoup(content, 'html.parser')
+
+        self.logger.info("soup: {}".format(soup))
+
+        return None
