@@ -167,7 +167,7 @@ class MoodleBot:
 
     def check_response_valid(self, response:list):
         try:
-            self.logger.info(response[0]['error'])
+            # self.logger.info(response[0]['error'])
             if response[0]['error'] == False:
                 return True
             else:
@@ -405,7 +405,7 @@ class MoodleBot:
             }
             
             # 設定 payload
-            payload = [{"index":0,"methodname":"core_calendar_get_calendar_monthly_view","args":{"year":2023,"month":6,"courseid":1,"categoryid":0,"includenavigation":False,"mini":True,"day":1}}]
+            payload = [{"index":0,"methodname":"core_calendar_get_calendar_monthly_view","args":{"year":year,"month":month,"courseid":1,"categoryid":12,"includenavigation":False,"mini":True,"day":1}}]
 
             payload = json.dumps(payload).replace('True', 'true').replace('False', 'false')
 
@@ -421,58 +421,35 @@ class MoodleBot:
             # 發送請求
             response = self.session.post(url=self.make_calendar_monthly_view_url(), headers=headers, data=payload)
 
-            self.logger.debug("response:\n {}".format(response.text))
-
             if not self.check_response_valid(response.json()):
                 raise moodle_bot_exception.MoodleLoginError()
             
             # 把回傳text 轉成 json
             data = json.loads(response.text)
-            print(data)
+
+            year = data[0]["data"]["date"]["year"]
+            month = data[0]["data"]["date"]["mon"]
+            self.logger.info("year: {}".format(year))
+            self.logger.info("month: {}".format(month))
+            weeks = []
+            for week in data[0]["data"]["weeks"]:
+                week_lisk = []
+                for day in week['days']:
+                    day_dict = {"mday": day['mday'], "events": []}
+                    event_list = []
+                    self.logger.info("day: {}".format(day['mday']))
+                    for event in day['events']:
+                        event_list.append(event["popupname"])
+                        self.logger.info("event: {}".format(event["popupname"]))
+                    day_dict["events"] = event_list
+                    week_lisk.append(day_dict)
+                weeks.append(week_lisk)
 
 
+            calendar = {"month": month, "year": year, "weeks": weeks}
             # temp return
-            return False, None
-
-            # # 拆解原生資料 在包裝成自己的資料
-            # for course in data[0]["data"]["courses"]:
-
-            #     # 利用　正規表達式　從 fullname 中取出系所名稱
-            #     match = re.search(r"\【(.+?)\】", course["fullname"])
-            #     if match:
-            #         content = match.group(1)
-            #     else:
-            #         raise moodle_bot_exception.MoodleResponseError("Can't find department name in fullname")
-                
-            #     # 把資料包裝成自己的格式
-            #     id = course["id"]
-            #     course_category = course["coursecategory"]
-            #     department = str(content)
-            #     fullname = course["fullname"]
-            #     course_id = course["idnumber"]
-            #     startdate = time.strftime("%Y-%m-%d", time.localtime(course["startdate"]))
-            #     enddate = time.strftime("%Y-%m-%d", time.localtime(course["enddate"]))
-            #     viewurl = course["viewurl"]
-            #     has_progress = course["hasprogress"]
-            #     progress = course["progress"]
-
-            #     # 創建 single course dict
-            #     single_course = { "id" : id ,
-            #                     "course_category" : course_category ,
-            #                     "department" : department ,
-            #                     "fullname" : fullname ,
-            #                     "course_id" : course_id ,
-            #                     "startdate" : startdate ,
-            #                     "enddate" : enddate ,
-            #                     "viewurl" : viewurl ,
-            #                     "hasprogress" : has_progress ,
-            #                     "progress" : progress
-            #                     }
-                
-            #     # 把 sigle course dict 加入 list
-            #     course_list.append(single_course)
-            #     for key in single_course:
-            #         self.logger.info("{}: {}".format(key, single_course[key]))
+            return True, calendar
+          
             # return True, course_list
         except json.decoder.JSONDecodeError as e:
                 self.logger.warning(str(e))
