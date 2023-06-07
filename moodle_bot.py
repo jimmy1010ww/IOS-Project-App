@@ -162,7 +162,29 @@ class MoodleBot:
     def make_course_page_url(self, course_id:int):
         return str("https://moodle2.ntust.edu.tw/course/view.php?id={}".format(course_id))
     
+    def make_calendar_monthly_view_url(self):
+        return  str("https://moodle2.ntust.edu.tw/lib/ajax/service.php?sesskey={}&info=core_calendar_get_calendar_monthly_view".format(self.sskey))
+
     def check_response_valid(self, response:list):
+        try:
+            self.logger.info(response[0]['error'])
+            if response[0]['error'] == False:
+                return True
+            else:
+                error_code = response[0]['exception']['errorcode']
+                if error_code == "servicerequireslogin":
+                    raise moodle_bot_exception.MoodleCookiesError()
+                elif error_code == "invalidsesskey":
+                    raise moodle_bot_exception.MoodleSskeyError()
+        except:
+            self.logger.warning("response error")
+            self.logger.info("login again")
+            if self.login():
+                return True
+            else:
+                return False
+
+    def check_calendar_valid(self, response:list):
         try:
             self.logger.info(type(response[0]['error']))
             if response[0]['error'] == False:
@@ -364,31 +386,101 @@ class MoodleBot:
             self.logger.warning(str(e))
             return False, None
 
-    def get_assaign_page(self, url:str):
+    def get_calendar_monthly(self, year:int, month:int):
+        try:
+            self.set_session_cookie()
+            self.session.get(url = "https://moodle2.ntust.edu.tw/calendar/view.php?view=month")
+            # 設定 header
+            headers = {
+                "Accept": "application/json, text/javascript, */*; q=0.01",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+                "Connection": "keep-alive",
+                "Content-Type": "application/json",
+                "Host": "moodle2.ntust.edu.tw",
+                "Origin": "https://moodle2.ntust.edu.tw",
+                "Referer": "https://moodle2.ntust.edu.tw/my/",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
+                "X-Requested-With": "XMLHttpRequest"
+            }
+            
+            # 設定 payload
+            payload = [{"index":0,"methodname":"core_calendar_get_calendar_monthly_view","args":{"year":2023,"month":6,"courseid":1,"categoryid":0,"includenavigation":False,"mini":True,"day":1}}]
 
-         # 設定 header
-        headers = {
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Connection": "keep-alive",
-            "Host": "moodle2.ntust.edu.tw",
-            "Referer": "https://moodle2.ntust.edu.tw/my/",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "same-origin",
-            "Sec-Fetch-User": "?1",
-            "Upgrade-Insecure-Requests": "1",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
-        }
+            payload = json.dumps(payload).replace('True', 'true').replace('False', 'false')
 
-        response = self.session.get(url=url, headers=headers)
-        
-        # bs4 解析
-        # 解析內容 (轉為string)
-        content = response.content.decode()
-        soup = BeautifulSoup(content, 'html.parser')
+            # debug
+            self.logger.debug("url:\n {}".format(self.make_calendar_monthly_view_url()))
+            self.logger.debug("cookies:\n {}".format(self.session.cookies))
+            self.logger.debug("headers:\n {}".format(headers))
+            self.logger.debug("payload:\n {}".format(payload))
+            
+            # 建立課程列表
+            course_list = []
 
-        self.logger.info("soup: {}".format(soup))
+            # 發送請求
+            response = self.session.post(url=self.make_calendar_monthly_view_url(), headers=headers, data=payload)
 
-        return None
+            self.logger.debug("response:\n {}".format(response.text))
+
+            if not self.check_response_valid(response.json()):
+                raise moodle_bot_exception.MoodleLoginError()
+            
+            # 把回傳text 轉成 json
+            data = json.loads(response.text)
+            print(data)
+
+
+            # temp return
+            return False, None
+
+            # # 拆解原生資料 在包裝成自己的資料
+            # for course in data[0]["data"]["courses"]:
+
+            #     # 利用　正規表達式　從 fullname 中取出系所名稱
+            #     match = re.search(r"\【(.+?)\】", course["fullname"])
+            #     if match:
+            #         content = match.group(1)
+            #     else:
+            #         raise moodle_bot_exception.MoodleResponseError("Can't find department name in fullname")
+                
+            #     # 把資料包裝成自己的格式
+            #     id = course["id"]
+            #     course_category = course["coursecategory"]
+            #     department = str(content)
+            #     fullname = course["fullname"]
+            #     course_id = course["idnumber"]
+            #     startdate = time.strftime("%Y-%m-%d", time.localtime(course["startdate"]))
+            #     enddate = time.strftime("%Y-%m-%d", time.localtime(course["enddate"]))
+            #     viewurl = course["viewurl"]
+            #     has_progress = course["hasprogress"]
+            #     progress = course["progress"]
+
+            #     # 創建 single course dict
+            #     single_course = { "id" : id ,
+            #                     "course_category" : course_category ,
+            #                     "department" : department ,
+            #                     "fullname" : fullname ,
+            #                     "course_id" : course_id ,
+            #                     "startdate" : startdate ,
+            #                     "enddate" : enddate ,
+            #                     "viewurl" : viewurl ,
+            #                     "hasprogress" : has_progress ,
+            #                     "progress" : progress
+            #                     }
+                
+            #     # 把 sigle course dict 加入 list
+            #     course_list.append(single_course)
+            #     for key in single_course:
+            #         self.logger.info("{}: {}".format(key, single_course[key]))
+            # return True, course_list
+        except json.decoder.JSONDecodeError as e:
+                self.logger.warning(str(e))
+                return False, None
+        except moodle_bot_exception.MoodleLoginError as e:
+            self.logger.error(str(e))
+            return False, None
+        except Exception as e:
+            self.logger.warning(str(e))
+            return False, None
+    

@@ -4,6 +4,7 @@ import colorlog
 from flask import Flask, render_template, request as flask_request
 from flask import jsonify
 from moodle_bot import MoodleBot
+from ntust_bot import Ntust_bot
 from app_json_parameter import app_json_parameter as json_parameter
 import app_sever_exception as server_exception
 
@@ -31,8 +32,10 @@ console_handler.setLevel(logging.DEBUG)
 flask_logger.addHandler(console_handler)
 
 
+ntustBot_list = []
 moodleBot_list = []
-userid_list = []
+ntustBot_userid_list = []
+moodleBot_userid_list = []
 
 # 取得處理 exception 的 json return
 def get_exception_json_return(_message):
@@ -59,18 +62,31 @@ def logger_print_client_info(_request):
     flask_logger.info("Client IP : {}".format(str(_request.remote_addr)))
     flask_logger.info("Clinet Port : {}".format(str(_request.environ['REMOTE_PORT'])))
 
-# 產生新的 userid
-def generate_userid():
-    if userid_list == []:
-        userid_list.append(0)
+# 產生新的 moodleBot userid
+def generate_moodleBot_userid():
+    if moodleBot_userid_list == []:
+        moodleBot_userid_list.append(0)
     else:   
-        userid_list.append(userid_list[-1]+1)
-    return userid_list[-1]
+        moodleBot_userid_list.append(moodleBot_userid_list[-1]+1)
+    return moodleBot_userid_list[-1]
+
+# 產生新的 ntustBot userid
+def generate_ntustBot_userid():
+    if ntustBot_userid_list == []:
+        ntustBot_userid_list.append(0)
+    else:   
+        ntustBot_userid_list.append(ntustBot_userid_list[-1]+1)
+    return ntustBot_userid_list[-1]
 
 # 檢查 userid 是否存在
-def check_userid_exist(_userid):
-    if _userid in userid_list:
-        return True
+def check_userid_exist(_userid, type):
+    # check moodleBot userid
+    if type == 0:
+        if _userid in moodleBot_userid_list:
+            return True
+    elif type == 1:
+        if _userid in ntustBot_userid_list:
+            return True
     else:
         return False
 
@@ -88,12 +104,16 @@ def test():
         if flask_request.method == 'GET':
             flask_logger.debug("[GET] /test")
             
-            current_moodleBot = MoodleBot("B10915003", "A9%t376149", 0, headless=True)
-            current_moodleBot.login()
-            current_moodleBot.get_enrolled_courses_by_timeline_classification()
-            # current_moodleBot.get_course_page(4932)
-            current_moodleBot.get_assaign_page("https://moodle2.ntust.edu.tw/mod/assign/view.php?id=89948")
-            return get_success_json_return("Running Test!")
+            current_moodle_bot = MoodleBot("B10915003", "A9%t376149", 0, headless=False)
+
+            current_moodle_bot.login()
+
+            ret, data = current_moodle_bot.get_calendar_monthly(2023,4)
+            if ret:
+                return_data_list = {json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.DATA: data }
+                return jsonify(return_data_list)
+            else:
+                raise server_exception.MoodleBotError("Get courses failed")
         else :
             raise server_exception.InvalidRequestMethod()
     except server_exception.InvalidRequestMethod as e:
@@ -102,6 +122,8 @@ def test():
     except Exception as e:
         handle_exception_message(str(e))
         return get_exception_json_return(str(e))
+    
+    
     
 # 提供 client 打招呼確認 server 是否正常運作
 @app.route('/hello', methods=['GET', 'POST'])
@@ -119,12 +141,12 @@ def hello():
         handle_exception_message(str(e))
         return get_exception_json_return(str(e))
     
-# 讓 client 檢查 userid 是否存在
-@app.route('/api/check_userid', methods=['POST'])
-def check_userid():
+# 讓 client 檢查 moodlebot userid 是否存在
+@app.route('/api/check_moodleBot_userid', methods=['POST'])
+def check_moodleBot_userid():
     try:
         if flask_request == 'POST':
-            flask_logger.debug("[POST] /api/check_userid")
+            flask_logger.debug("[POST] /api/check_moodleBot_userid")
 
             # 印出Clien IP和Port
             logger_print_client_info(flask_request)
@@ -136,7 +158,7 @@ def check_userid():
                 raise server_exception.InvalidReceiveData("Data is None!")
 
             # 檢查 userid 是否存在
-            if check_userid_exist(data[json_parameter.USERID]):
+            if check_userid_exist(data[json_parameter.USERID], 0):
                 return get_success_json_return("Userid: {} exist!".format(data[json_parameter.USERID]))
             else:
                 raise server_exception.UserIDNotExist(data[json_parameter.USERID])
@@ -156,7 +178,44 @@ def check_userid():
         handle_exception_message(str(e))
         return get_exception_json_return(str(e))
 
-# 檢查moodle是否可以正確登入
+# 讓 client 檢查 ntustBot userid 是否存在
+@app.route('/api/check_ntustBot_userid', methods=['POST'])
+def check_ntustBot_userid():
+    try:
+        if flask_request == 'POST':
+            flask_logger.debug("[POST] /api/check_ntustBot_userid")
+
+            # 印出Clien IP和Port
+            logger_print_client_info(flask_request)
+
+            # 取的 post data 並且檢查
+            is_received, data = check_receive_data(flask_request)
+
+            if not is_received:
+                raise server_exception.InvalidReceiveData("Data is None!")
+
+            # 檢查 userid 是否存在
+            if check_userid_exist(data[json_parameter.USERID], 1):
+                return get_success_json_return("Userid: {} exist!".format(data[json_parameter.USERID]))
+            else:
+                raise server_exception.UserIDNotExist(data[json_parameter.USERID])
+        else:
+            raise server_exception.UserIDNotExist()
+    
+    except server_exception.UserIDNotExist as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except server_exception.InvalidRequestMethod as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except server_exception.InvalidReceiveData as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except Exception as e:
+        handle_exception_message(str(e))
+        return get_exception_json_return(str(e))
+
+# 檢查 moodle系統 是否可以登入
 @app.route('/api/check_moodle_login', methods=['POST'])
 def check_moodle_login():
     try: 
@@ -179,7 +238,7 @@ def check_moodle_login():
             flask_logger.info("username : {} password: {}".format(str(username), str(password)))
             
             # 產生新的 userid
-            current_userid = generate_userid()
+            current_userid = generate_moodleBot_userid()
 
             #宣告moodleLogin物件
             current_moodleBot = MoodleBot(username, password, current_userid, headless=True)
@@ -196,7 +255,7 @@ def check_moodle_login():
                 flask_logger.debug("return_data : {}".format(return_data.json))
                 return return_data
             else:
-                userid_list.remove(userid_list[-1])
+                moodleBot_userid_list.remove(moodleBot_userid_list[-1])
                 flask_logger.warning("Login Failed")
                 flask_logger.debug("moodleBot_list length : {}".format(str(len(moodleBot_list))))
                 return get_exception_json_return("Login Failed")
@@ -213,7 +272,8 @@ def check_moodle_login():
     except Exception as e:
         handle_exception_message(str(e))
         return get_exception_json_return(str(e))
-    
+
+# 取的moodle的課程資訊    
 @app.route('/api/get_courses', methods=['POST'])
 def get_courses():
     try:
@@ -241,7 +301,7 @@ def get_courses():
                 return server_exception.InvalidPostParameter("sort value error")
 
             # 檢查 userid 是否存在
-            if not check_userid_exist(userid):
+            if not check_userid_exist(userid, 0):
                 raise server_exception.UserIDNotExist(userid)
             
             # 取得 moodleBot 物件
@@ -277,7 +337,8 @@ def get_courses():
     except Exception as e:
         handle_exception_message(str(e))
         return get_exception_json_return(str(e))
-    
+
+# 取得moodle課程的頁面資訊
 @app.route('/api/get_course_page', methods=['POST'])
 def get_course_page():
     try:
@@ -297,7 +358,7 @@ def get_course_page():
             courseid = int(data['courseid'])
 
             # 檢查 userid 是否存在
-            if not check_userid_exist(userid):
+            if not check_userid_exist(userid, 0):
                 raise server_exception.UserIDNotExist(userid)
             
             # 取得 moodleBot 物件
@@ -330,6 +391,167 @@ def get_course_page():
         flask_logger.error(str(e))
         return get_exception_json_return(str(e))
 
+# 檢查 Ntust系統 是否可以登入
+@app.route('/api/check_ntust_login', methods=['POST'])
+def check_ntust_login():
+    try: 
+        #如果是POST請求，從請求獲取json來進行登入
+        if flask_request.method == 'POST':
+            flask_logger.debug("[POST] /api/check_ntust_login]")
+            
+            #印出Clien IP和Port
+            logger_print_client_info(flask_request)
+
+            #從請求獲取json
+            is_received, data = check_receive_data(flask_request)
+
+            if not is_received:
+                raise server_exception.InvalidReceiveData("Data is None!")
+
+            #從json中獲取帳號密碼
+            username = data[json_parameter.USERNAME]
+            password = data[json_parameter.PASSWORD]
+            flask_logger.info("username : {} password: {}".format(str(username), str(password)))
+            
+            # 產生新的 userid
+            current_userid = generate_ntustBot_userid()
+
+            #宣告 nutust_bot 物件
+            current_ntust_bot = Ntust_bot(username, password, current_userid, headless=False)
+            
+            #如果登入成功，回傳json
+            if current_ntust_bot.login():
+                flask_logger.info("Login Success")
+                flask_logger.info("userid : {}".format(str(current_ntust_bot.bot_id)))
+                flask_logger.debug("ntustBot_list length : {}".format(str(len(ntustBot_list))))
+
+                # 登入成功，新增 ntustBot 物件到 ntustBot_list
+                ntustBot_list.append(current_ntust_bot)
+                return_data = jsonify({json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.USERID: str(current_ntust_bot.bot_id)})
+                flask_logger.debug("return_data : {}".format(return_data.json))
+                return return_data
+            else:
+                ntustBot_userid_list.remove(ntustBot_userid_list[-1])
+                flask_logger.warning("Login Failed")
+                flask_logger.debug("ntustBot_list length : {}".format(str(len(ntustBot_list))))
+                return get_exception_json_return("Login Failed")
+        #如果不是POST請求，回傳錯誤
+        else:
+            raise server_exception.InvalidRequestMethod()
+    
+    except server_exception.InvalidRequestMethod as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except server_exception.InvalidReceiveData as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except Exception as e:
+        handle_exception_message(str(e))
+        return get_exception_json_return(str(e))
+
+# 取得 Ntust的歷年成績
+@app.route('/api/get_ntust_score', methods=['POST'])
+def get_ntust_score():
+    try:
+        if flask_request.method == 'POST':
+            flask_logger.debug("[POST] /api/get_course_page")
+
+            #印出Clien IP和Port
+            logger_print_client_info(flask_request)
+
+            #從請求獲取json
+            is_received, data = check_receive_data(flask_request)
+            if not is_received:
+                raise server_exception.InvalidReceiveData("Data is None!")
+            
+            # 讀取 post data
+            userid = int(data['userid'])
+
+            # 檢查 userid 是否存在
+            if not check_userid_exist(userid, 1):
+                raise server_exception.UserIDNotExist(userid)
+            
+            # 取得 ntust_bot 物件
+            current_ntustBot = ntustBot_list[userid]
+
+            # 取得單個課程頁面
+            ret, data = current_ntustBot.getScore()
+
+            if ret:
+                return_data = {json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.DATA: data}
+                return jsonify(return_data)
+        else:
+            raise server_exception.InvalidRequestMethod()
+    except server_exception.MoodleBotError as e:
+        flask_logger.critical(str(e))
+        return get_exception_json_return(str(e))            
+    except server_exception.UserIDNotExist as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except server_exception.InvalidRequestMethod as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except server_exception.InvalidReceiveData as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except server_exception.InvalidPostParameter as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except Exception as e:
+        flask_logger.error(str(e))
+        return get_exception_json_return(str(e))
+
+# 取得 Ntust課表
+@app.route('/api/get_course_table', methods=['POST'])
+def get_course_table():
+    try:
+        if flask_request.method == 'POST':
+            flask_logger.debug("[POST] /api/get_course_table")
+
+            #印出Clien IP和Port
+            logger_print_client_info(flask_request)
+
+            #從請求獲取json
+            is_received, data = check_receive_data(flask_request)
+            if not is_received:
+                raise server_exception.InvalidReceiveData("Data is None!")
+            
+            # 讀取 post data
+            userid = int(data['userid'])
+
+            # 檢查 userid 是否存在
+            if not check_userid_exist(userid, 1):
+                raise server_exception.UserIDNotExist(userid)
+            
+            # 取得 ntust_bot 物件
+            current_ntustBot = ntustBot_list[userid]
+
+            # 取得單個課程頁面
+            ret, data = current_ntustBot.getCourseTable()
+
+            if ret:
+                return_data = {json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.DATA: data}
+                return jsonify(return_data)
+        else:
+            raise server_exception.InvalidRequestMethod()
+    except server_exception.MoodleBotError as e:
+        flask_logger.critical(str(e))
+        return get_exception_json_return(str(e))            
+    except server_exception.UserIDNotExist as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except server_exception.InvalidRequestMethod as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except server_exception.InvalidReceiveData as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except server_exception.InvalidPostParameter as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except Exception as e:
+        flask_logger.error(str(e))
+        return get_exception_json_return(str(e))
 
 if __name__ == '__main__':
     # clear the terminal
