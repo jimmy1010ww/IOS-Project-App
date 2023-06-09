@@ -251,7 +251,7 @@ def check_moodle_login():
 
                 # 登入成功，新增 moodleBot 物件到 moodleBot_list
                 moodleBot_list.append(current_moodleBot)
-                return_data = jsonify({json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.USERID: str(current_moodleBot.bot_id)})
+                return_data = jsonify({json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.USERID: current_moodleBot.bot_id})
                 flask_logger.debug("return_data : {}".format(return_data.json))
                 return return_data
             else:
