@@ -554,6 +554,4 @@ def get_course_table():
         return get_exception_json_return(str(e))
 
 if __name__ == '__main__':
-    # clear the terminal
-    print(chr(27) + "[2J")
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=True)
