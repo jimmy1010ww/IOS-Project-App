@@ -273,7 +273,7 @@ def check_moodle_login():
         handle_exception_message(str(e))
         return get_exception_json_return(str(e))
 
-# 取的moodle的課程資訊    
+# 取得 moodle 的課程資訊    
 @app.route('/api/get_courses', methods=['POST'])
 def get_courses():
     try:
@@ -338,7 +338,7 @@ def get_courses():
         handle_exception_message(str(e))
         return get_exception_json_return(str(e))
 
-# 取得moodle課程的頁面資訊
+# 取得 moodle 課程的頁面資訊
 @app.route('/api/get_course_page', methods=['POST'])
 def get_course_page():
     try:
@@ -369,6 +369,61 @@ def get_course_page():
 
             if ret:
                 return_data = {json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.COURSEID: courseid, json_parameter.DATA: data}
+                return jsonify(return_data)
+        else:
+            raise server_exception.InvalidRequestMethod()
+    except server_exception.MoodleBotError as e:
+        flask_logger.critical(str(e))
+        return get_exception_json_return(str(e))            
+    except server_exception.UserIDNotExist as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except server_exception.InvalidRequestMethod as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except server_exception.InvalidReceiveData as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except server_exception.InvalidPostParameter as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except Exception as e:
+        flask_logger.error(str(e))
+        return get_exception_json_return(str(e))
+
+# 取得 moodle 的日曆資訊
+@app.route('/api/get_calendar', methods=['POST'])
+def get_calendar():
+    try:
+        if flask_request.method == 'POST':
+            flask_logger.debug("[POST] /api/get_calendar")
+
+            #印出Clien IP和Port
+            logger_print_client_info(flask_request)
+
+            #從請求獲取json
+            is_received, data = check_receive_data(flask_request)
+            if not is_received:
+                raise server_exception.InvalidReceiveData("Data is None!")
+            
+            # 讀取 post data
+            userid = int(data['userid'])
+            year =  int(data['year'])
+            month = int(data['month'])
+            
+
+            # 檢查 userid 是否存在
+            if not check_userid_exist(userid, 0):
+                raise server_exception.UserIDNotExist(userid)
+            
+            # 取得 moodleBot 物件
+            current_moodleBot = moodleBot_list[userid]
+
+            # 取得單個課程頁面
+            ret, data = current_moodleBot.get_calendar_monthly(year, month)
+
+            if ret:
+                return_data = {json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.DATA: data}
                 return jsonify(return_data)
         else:
             raise server_exception.InvalidRequestMethod()
@@ -427,7 +482,7 @@ def check_ntust_login():
 
                 # 登入成功，新增 ntustBot 物件到 ntustBot_list
                 ntustBot_list.append(current_ntust_bot)
-                return_data = jsonify({json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.USERID: str(current_ntust_bot.bot_id)})
+                return_data = jsonify({json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.USERID: current_ntust_bot.bot_id})
                 flask_logger.debug("return_data : {}".format(return_data.json))
                 return return_data
             else:
@@ -454,7 +509,7 @@ def check_ntust_login():
 def get_ntust_score():
     try:
         if flask_request.method == 'POST':
-            flask_logger.debug("[POST] /api/get_course_page")
+            flask_logger.debug("[POST] /api/get_ntust_score")
 
             #印出Clien IP和Port
             logger_print_client_info(flask_request)
@@ -522,6 +577,7 @@ def get_course_table():
             # 檢查 userid 是否存在
             if not check_userid_exist(userid, 1):
                 raise server_exception.UserIDNotExist(userid)
+            
             
             # 取得 ntust_bot 物件
             current_ntustBot = ntustBot_list[userid]

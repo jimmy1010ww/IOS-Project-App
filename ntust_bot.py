@@ -125,7 +125,10 @@ class Ntust_bot:
         self.driver.quit()
 
     def getScore(self):
-        # self.driver.save_screenshot('screenshot.png')
+        # 重新導覽到查詢成績的網頁
+        login_url = 'https://stuinfosys.ntust.edu.tw/StuScoreQueryServ/StuScoreQuery'
+        self.driver.get(login_url)
+
         show_score_button = self.driver.find_element(By.ID, "DisplayAll")
         show_score_button.click()
 
@@ -140,17 +143,25 @@ class Ntust_bot:
         # Read the table into a pandas DataFrame
         data = pd.read_html(str(table))[0]
 
+        data = data.rename(columns={
+            "學年期": "academic_year",
+            "平均成績": "average_score",
+            "平均成績 (歷年)": "average_score_cumulative",
+            "班排": "class_rank",
+            "班排 (歷年)": "class_rank_cumulative",
+            "系排": "department_rank",
+            "系排 (歷年)": "department_rank_cumulative"
+        })
+
         dict_data = data.to_dict('records')
         
         return True, dict_data
     
     def getCourseTable(self):
         login_url = 'https://stuinfosys.ntust.edu.tw/NTUSTSSOServ/SSO/Login/CourseSelection?ReturnUrl=CourseSelection'
-
-        self.logger.debug("login")
-
         self.driver.get(login_url)
 
+        self.logger.debug("login")
         self.logger.debug(self.driver.current_url)
 
         actions = ActionChains(self.driver)
@@ -168,7 +179,6 @@ class Ntust_bot:
         actions.move_to_element(password_field).click().perform()
             
         password_field.send_keys(self.password)
-
 
         
         actions.move_to_element(login_button).click().perform()
@@ -227,7 +237,20 @@ class Ntust_bot:
         table_index = 3  # 抓取第四個表格
         header_row = table[table_index].find('tr')  # 標題列
         header_columns = header_row.find_all('td')  # 標題行
-        header = [cell.get_text(strip=True) for cell in header_columns]
+
+        column_name_mapping = {
+            "星期一": "Monday",
+            "星期三": "Wednesday",
+            "星期二": "Tuesday",
+            "星期五": "Friday",
+            "星期六": "Saturday",
+            "星期四": "Thursday",
+            "星期日": "Sunday",
+            "時間": "Time",
+            "節次": "Period"
+        }
+
+        header = [column_name_mapping[cell.get_text(strip=True)] for cell in header_columns]
 
         # 跳過標題列
         rows = table[table_index].find_all('tr')[1:]
@@ -235,9 +258,9 @@ class Ntust_bot:
         for row in rows:
             row_data = {}
             cells = row.find_all('td')
-            if cells:  # 确保该行不是空行
+            if cells:  # Make sure the row is not empty
                 for i, cell in enumerate(cells):
-                    cell_text = cell.get_text(strip=True).replace('\n', '').replace(' ', '')  # 去除换行符号和空格
+                    cell_text = cell.get_text(strip=True).replace('\n', '').replace(' ', '')  # Remove newline characters and spaces
                     row_data[header[i]] = cell_text
                 data.append(row_data)
 
