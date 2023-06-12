@@ -607,5 +607,25 @@ def get_course_table():
         flask_logger.error(str(e))
         return get_exception_json_return(str(e))
 
+@app.route('/api/get_bulletin_board_page', methods=['GET'])
+def get_bulletin_board_page():
+    try:
+        if flask_request.method == 'GET':
+            flask_logger.debug("[GET] /api/get_bulletin_board_page")
+            
+            current_bot = ntust_bulletin_bot()
+
+            data = current_bot.get_bulletin_board_page(1)
+            return_data_list = {json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.DATA: data }
+            return return_data_list
+        else :
+            raise server_exception.InvalidRequestMethod()
+    except server_exception.InvalidRequestMethod as e:
+        flask_logger.warning(str(e))
+        return get_exception_json_return(str(e))
+    except Exception as e:
+        handle_exception_message(str(e))
+        return get_exception_json_return(str(e))
+    
 if __name__ == '__main__':
     app.run(host="0.0.0.0", debug=True)
