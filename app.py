@@ -5,6 +5,7 @@ from flask import Flask, render_template, request as flask_request
 from flask import jsonify
 from moodle_bot import MoodleBot
 from ntust_bot import Ntust_bot
+from ntust_bulletin import NTUSTBulletinBot as ntust_bulletin_bot
 from app_json_parameter import app_json_parameter as json_parameter
 import app_sever_exception as server_exception
 
@@ -104,16 +105,13 @@ def test():
         if flask_request.method == 'GET':
             flask_logger.debug("[GET] /test")
             
-            current_moodle_bot = MoodleBot("B10915003", "A9%t376149", 0, headless=False)
+            current_bot = ntust_bulletin_bot()
 
-            current_moodle_bot.login()
+            data = current_bot.get_bulletin_board_page(1)
+            return_data_list = {json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.DATA: data }
+            return return_data_list
 
-            ret, data = current_moodle_bot.get_calendar_monthly(2023,4)
-            if ret:
-                return_data_list = {json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.DATA: data }
-                return jsonify(return_data_list)
-            else:
-                raise server_exception.MoodleBotError("Get courses failed")
+
         else :
             raise server_exception.InvalidRequestMethod()
     except server_exception.InvalidRequestMethod as e:
