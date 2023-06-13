@@ -340,30 +340,38 @@ class MoodleBot:
                 single_week["week"] = current_week
 
                 try:
-                    section = content.find('ul', class_ = 'section img-text')
-                    for item in section:    
+                    section = content.find('ul', class_='section img-text')
+                    for item in section.find_all('li'):
                         section_data = {
-                            "name" : "",
-                            "url" : "",
-                            "icon_url" : ""
+                            "name": "",
+                            "url": "",
+                            "icon_url": ""
                         }
                         
-                        url = item.find('a')['href']
-                        icon_url = item.find('img')['src']
-                        name = item.find('span', class_ = 'instancename').text
+                        anchor_tag = item.find('a')
+                        if anchor_tag:
+                            url = anchor_tag['href']
+                            icon_url = anchor_tag.find('img')['src']
+                            name = anchor_tag.find('span', class_='instancename').text.strip()
 
-                        self.logger.info("url: {}".format(url))
-                        self.logger.info("icon_url: {}".format(icon_url))
-                        self.logger.info("name: {}\n".format(name))
+                            self.logger.info("url: {}".format(url))
+                            self.logger.info("icon_url: {}".format(icon_url))
+                            self.logger.info("name: {}\n".format(name))
+
+                            section_data["name"] = name
+                            section_data["url"] = url
+                            section_data["icon_url"] = icon_url
+                            single_week["section"].append(section_data)
+                        
+                        label_tag = item.find('div', class_='contentwithoutlink')
+                        if label_tag:
+                            name = label_tag.find('p').text.strip()
+                            self.logger.info("name: {}\n".format(name))
+
+                            section_data["name"] = name
+                            single_week["section"].append(section_data)
 
 
-                        # if "mod/assign" in url:
-                        #     assignment_data = self.get_assaign_page(url)
-
-                        section_data["name"] = name
-                        section_data["url"] = url
-                        section_data["icon_url"] = icon_url
-                        single_week["section"].append(section_data)
                 except Exception as e:
                     self.logger.warning(str(e))
                     single_week["section"].append("None")
