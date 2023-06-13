@@ -19,7 +19,8 @@ class Ntust_bot:
         self.username = username
         self.password = password
         self.bot_id = bot_id
-        self.driver = None
+        self.driver_1 = None        # white login view
+        self.driver_2 = None        # blue login view
         self.sskey = None
         self.option_headless = headless
         self.session = requests.session()
@@ -60,8 +61,10 @@ class Ntust_bot:
     def initDriver(self):
         # check if driver is already created
         try:
-            if self.driver != None:
-                self.driver = None 
+            if self.driver_1 != None:
+                self.driver_1 = None
+            if self.driver_2 != None:
+                self.driver_2 = None 
         # catch the driver not created exception
         except Exception as e:
             self.logger.warning(str(e))
@@ -81,7 +84,8 @@ class Ntust_bot:
         service = Service(executable_path=os.path.abspath("\driver_win\chromedriver"))
 
         # create chrome driver
-        self.driver = webdriver.Chrome(service=service, options=chrome_options)
+        self.driver_1 = webdriver.Chrome(service=service, options=chrome_options)
+        self.driver_2 = webdriver.Chrome(service=service, options=chrome_options)
         self.logger.debug("driver created")
 
     def __del__(self):
@@ -93,47 +97,79 @@ class Ntust_bot:
                 handler.close()
                 self.logger.removeHandler(handler)
 
-    def login(self):
-        login_url = 'https://stuinfosys.ntust.edu.tw/StuScoreQueryServ/StuScoreQuery'
-
+    def white_login(self):
+        score_login_url = 'https://stuinfosys.ntust.edu.tw/StuScoreQueryServ/StuScoreQuery'       # 白色的登入畫面 -> 查詢成績
+        
         self.logger.debug("login")
 
-        self.driver.get(login_url)
+        self.driver_1.get(score_login_url)
 
-        self.logger.debug(self.driver.current_url)
+        self.logger.debug( "driver 1" + self.driver_1.current_url)
 
         # Find the email and password fields
-        email_field = self.driver.find_element(By.ID, "Ecom_User_ID")
-        password_field = self.driver.find_element(By.ID, "Ecom_Password")
-        login_button = self.driver.find_element(By.ID, "loginButton2")
+        email_field = self.driver_1.find_element(By.ID, "Ecom_User_ID")
+        password_field = self.driver_1.find_element(By.ID, "Ecom_Password")
+        login_button = self.driver_1.find_element(By.ID, "loginButton2")
 
         # Enter login credentials
         for word in self.username:
             email_field.send_keys(word)
-            time.sleep(0.3)  # wait for 0.3 seconds
 
         for word in self.password:
             password_field.send_keys(word)
-            time.sleep(0.3)  # wait for 0.3 seconds
 
         # Click the login button
         login_button.click()
         input("Press Enter to continue...")
+
+    def blue_login(self):
+        couse_table_login_url = 'https://stuinfosys.ntust.edu.tw/NTUSTSSOServ/SSO/Login/CourseSelection?ReturnUrl=CourseSelection'  #藍色的登入畫面 -> 查詢課表
+
+        self.logger.debug("login")
+
+        self.driver_2.get(couse_table_login_url)
+
+        self.logger.debug( "driver 2" + self.driver_2.current_url)
+
+        actions = ActionChains(self.driver_2)
+
+        # Find the email and password fields
+        email_field = self.driver_2.find_element(By.NAME, "UserName")
+        password_field = self.driver_2.find_element(By.NAME, "Password")
+        login_button = self.driver_2.find_element(By.ID, "btnLogIn")
+
+        # Enter login credentials
+        actions.move_to_element(email_field).click().perform()
+
+        email_field.send_keys(self.username)
+
+        actions.move_to_element(password_field).click().perform()
+            
+        password_field.send_keys(self.password)
+
+        
+        actions.move_to_element(login_button).click().perform()
+        input("Press Enter to continue...")
+
+    def login(self):
+        self.white_login()
+        self.blue_login()
         return True
     
     def close(self):
-        self.driver.quit()
+        self.driver_1.quit()
+        self.driver_2.quit()
 
     def getScore(self):
         # 重新導覽到查詢成績的網頁
         login_url = 'https://stuinfosys.ntust.edu.tw/StuScoreQueryServ/StuScoreQuery'
-        self.driver.get(login_url)
+        self.driver_1.get(login_url)
 
-        show_score_button = self.driver.find_element(By.ID, "DisplayAll")
+        show_score_button = self.driver_1.find_element(By.ID, "DisplayAll")
         show_score_button.click()
 
         # get the html page source
-        page = self.driver.page_source
+        page = self.driver_1.page_source
         # Parse the HTML with BeautifulSoup
         soup = BeautifulSoup(page, 'html.parser')
 
@@ -158,73 +194,19 @@ class Ntust_bot:
         return True, dict_data
     
     def getCourseTable(self):
-        login_url = 'https://stuinfosys.ntust.edu.tw/NTUSTSSOServ/SSO/Login/CourseSelection?ReturnUrl=CourseSelection'
-        self.driver.get(login_url)
+        # 重新導覽到查詢課表的網頁
 
-        self.logger.debug("login")
-        self.logger.debug(self.driver.current_url)
+        couse_table_url = 'https://courseselection.ntust.edu.tw/'  #藍色的登入畫面 -> 查詢課表
+        self.driver_2.get(couse_table_url)
 
-        actions = ActionChains(self.driver)
-
-        # Find the email and password fields
-        email_field = self.driver.find_element(By.NAME, "UserName")
-        password_field = self.driver.find_element(By.NAME, "Password")
-        login_button = self.driver.find_element(By.ID, "btnLogIn")
-
-        # Enter login credentials
-        actions.move_to_element(email_field).click().perform()
-
-        email_field.send_keys(self.username)
-
-        actions.move_to_element(password_field).click().perform()
-            
-        password_field.send_keys(self.password)
-
-        
-        actions.move_to_element(login_button).click().perform()
-
-        # wait for the page to load
-        try:
-            input("Press Enter to continue...")
-
-            # look if there is a login error element
-            if self.driver.current_url == login_url:
-                self.logger.info("Login Success")
-                # self.sskey = self.driver.find_element(By.XPATH, "//*[@id=\"page-header\"]/div/div/div/div[2]/div[1]/div/form/input[2]").get_attribute("value")
-                # self.logger.info("sskey: {}".format(self.sskey))
-
-            elif self.driver.current_url != login_url:
-                self.logger.warning("login url is the same")
-                # login_error_element = self.driver.find_element(By.XPATH, "//*[@id=\"region-main\"]/div/div[3]/div/div[1]/div")
-                # self.logger.warning(login_error_element.text)
-
-
-        except TimeoutError as e:
-            self.logger.warning(str(e))
-            self.logger.warning("Timeout")
-            try:
-                if self.driver.current_url == self.login_url:
-                    self.logger.warning("login url is the same")
-                    login_error_element = self.driver.find_element(By.XPATH, "//*[@id=\"region-main\"]/div/div[3]/div/div[1]/div")
-                    self.logger.warning(login_error_element.text)
-                    return False
-            except Exception as e:
-                self.logger.warning(str(e))
-                self.logger.critical("Unexpeted error")
-                return False
-        except Exception as e:
-            self.logger.warning(str(e))
-            self.logger.critical("Unexpeted error")
-            return False
-        
-        courese_toggle_list = self.driver.find_element(By.XPATH, "//*[@id=\"navigation\"]/ul[1]/li[4]/a")
+        courese_toggle_list = self.driver_2.find_element(By.XPATH, "//*[@id=\"navigation\"]/ul[1]/li[4]/a")
         courese_toggle_list.click()
 
-        course_table_button = self.driver.find_element(By.XPATH, "//*[@id=\"navigation\"]/ul[1]/li[4]/ul/li[1]/a")
+        course_table_button = self.driver_2.find_element(By.XPATH, "//*[@id=\"navigation\"]/ul[1]/li[4]/ul/li[1]/a")
         course_table_button.click()
 
         # get the html page source
-        page = self.driver.page_source
+        page = self.driver_2.page_source
 
         soup = BeautifulSoup(page, 'html.parser')
 
