@@ -254,6 +254,8 @@ class MoodleBot:
                 else:
                     raise moodle_bot_exception.MoodleResponseError("Can't find department name in fullname")
                 
+                
+
                 # 把資料包裝成自己的格式
                 id = course["id"]
                 course_category = course["coursecategory"]
@@ -265,6 +267,17 @@ class MoodleBot:
                 viewurl = course["viewurl"]
                 has_progress = course["hasprogress"]
                 progress = course["progress"]
+                shortname = ""
+
+                # 利用正規表達式提取中間的課程名稱
+                pattern = r"\[.*?\] (.*?) \(.*?\)"
+                match = re.search(pattern, course["shortname"])
+                if match:
+                    desired_content = match.group(1)
+                    shortname = desired_content.split(" ")[0]
+                else:
+                    shortname = ""
+
 
                 # 創建 single course dict
                 single_course = { "id" : id ,
@@ -276,7 +289,8 @@ class MoodleBot:
                                 "enddate" : enddate ,
                                 "viewurl" : viewurl ,
                                 "hasprogress" : has_progress ,
-                                "progress" : progress
+                                "progress" : progress,
+                                "shortname" : shortname
                                 }
                 
                 # 把 sigle course dict 加入 list
