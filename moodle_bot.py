@@ -385,8 +385,81 @@ class MoodleBot:
         except Exception as e:
             self.logger.warning(str(e))
             return False, None
+    
+    # 取得作業頁面資料
+    # Param: url
+    # Return: (bool, storage_path)
+    def get_course_page_resourse(self, url:str):
+        try:
+            resource_prefix = 'https://moodle2.ntust.edu.tw/mod/resource'
 
-    def get_calendar_monthly(self, year:int, month:int):
+            if url.startswith(resource_prefix):
+                pass
+            else:
+                raise moodle_bot_exception.MoodleGetPageResourceFailed("url is not mod/resource page")
+
+            # 設定 session cookie
+            self.set_session_cookie()
+
+            # 設定 header
+            headers = {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Accept-Language': 'zh-TW,zh;q=0.6',
+                'Connection': 'keep-alive',
+                'Host': 'moodle2.ntust.edu.tw',
+                'Referer': 'https://moodle2.ntust.edu.tw/course/view.php?id=4932',
+                'Sec-Ch-Ua': '"Not.A/Brand";v="8", "Chromium";v="114", "Brave";v="114"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                'Sec-Ch-Ua-Platform': '"Windows"',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'same-origin',
+                'Sec-Fetch-User': '?1',
+                'Sec-Gpc': '1',
+                'Upgrade-Insecure-Requests': '1',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+            }
+            
+            # 發送 request 來取得頁面的資訊 (網頁原本系統設計這邊會跳轉到其他頁面)
+            # request 會自動跳轉
+            response = self.session.get(url, headers=headers, allow_redirects=True)
+
+            # if response.status_code == 303:
+            #     url = response.headers['Location']
+            #     response = self.session.get(url, headers=headers, allow_redirects=True)
+
+            # 'content-disposition'是一個response header，它會告訴你文件的原始名稱。
+            content_disposition = response.headers.get('content-disposition')
+            
+            self.logger.info("content-type: {}".format(response.headers.get('content-type')))
+            self.logger.info("content-disposition: {}".format(content_disposition))
+            
+            # 檢查下載的檔案型態
+            content_type = response.headers.get('content-type') #檔案型態
+            filename = content_disposition.split('"')[1]        #檔案名稱
+            
+            if (content_type == 'application/zip' or 
+                content_type == 'application/pdf'):
+                # 儲存在 download_file/{userid} 資料夾下
+                download_dir = os.path.join('download_file', str(self.bot_id))
+                os.makedirs(download_dir, exist_ok=True)
+
+                filename_with_path = os.path.join(download_dir, filename)
+                with open(filename_with_path, 'wb') as out_file:
+                    out_file.write(response.content)
+                return True , filename_with_path
+            else :
+                raise moodle_bot_exception.MoodleDownloadFileFailed("file type refused")
+            
+        except moodle_bot_exception.MoodleDownloadFileFailed as e:
+            self.logger.warning(str(e))
+            return False, None
+        except Exception as e:
+            self.logger.warning(str(e))
+            return False, None
+ 
+    def get_calendar_monthly(self, year:int, month:int): 
         try:
             self.set_session_cookie()
             self.session.get(url = "https://moodle2.ntust.edu.tw/calendar/view.php?view=month")
@@ -454,9 +527,6 @@ class MoodleBot:
         except json.decoder.JSONDecodeError as e:
                 self.logger.warning(str(e))
                 return False, None
-        except moodle_bot_exception.MoodleLoginError as e:
-            self.logger.error(str(e))
-            return False, None
         except Exception as e:
             self.logger.warning(str(e))
             return False, None

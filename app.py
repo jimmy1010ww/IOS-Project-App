@@ -2,7 +2,7 @@
 import logging
 import colorlog
 from flask import Flask, render_template, request as flask_request
-from flask import jsonify
+from flask import jsonify , send_file
 from moodle_bot import MoodleBot
 from ntust_bot import Ntust_bot
 from ntust_bulletin import NTUSTBulletinBot as ntust_bulletin_bot
@@ -105,10 +105,18 @@ def test():
         if flask_request.method == 'GET':
             flask_logger.debug("[GET] /test")
             
-            current_bot = ntust_bulletin_bot()
+            # 產生新的 userid
+            current_userid = generate_moodleBot_userid()
 
-            data = current_bot.get_bulletin_board_page(1)
-            return_data_list = {json_parameter.RESULT: json_parameter.RESULT_SUCCESS, json_parameter.DATA: data }
+            #宣告moodleLogin物件
+            current_moodleBot = MoodleBot("B10915003", "A9%t376149", current_userid, headless=True)
+
+            current_moodleBot.login()
+
+            current_moodleBot.get_course_page_resourse("https://moodle2.ntust.edu.tw/mod/resource/view.php?id=87474")
+
+            # data = current_bot.get_bulletin_board_page(1)
+            return_data_list = {json_parameter.RESULT: json_parameter.RESULT_SUCCESS}
             return return_data_list
 
 
@@ -120,8 +128,6 @@ def test():
     except Exception as e:
         handle_exception_message(str(e))
         return get_exception_json_return(str(e))
-    
-    
     
 # 提供 client 打招呼確認 server 是否正常運作
 @app.route('/hello', methods=['GET', 'POST'])
@@ -626,6 +632,47 @@ def get_bulletin_board_page():
     except Exception as e:
         handle_exception_message(str(e))
         return get_exception_json_return(str(e))
+
+@app.route('/api/get_page_resouce_file', methods=['POST'])
+def get_page_resouce_file ():
+    try:
+        if flask_request.method == 'POST':
+            flask_logger.debug("[POST] /api/get_page_resouce_file")
+
+            #印出Clien IP和Port
+            logger_print_client_info(flask_request)
+
+            #從請求獲取json
+            is_received, data = check_receive_data(flask_request)
+            if not is_received:
+                raise server_exception.InvalidReceiveData("Data is None!")
+            
+            # 讀取 post data
+            userid = int(data['userid'])
+            url = str(data['url'])
+
+            # 檢查 userid 是否存在
+            if not check_userid_exist(userid, 0):
+                raise server_exception.UserIDNotExist(userid)
+            
+            # 取得 ntust_bot 物件
+            current_moodle_bot = moodleBot_list[userid]
+
+            # 取得單個課程頁面
+            ret, data_path = current_moodle_bot.get_course_page_resourse(url)
+
+            if ret:
+                return send_file(data_path, as_attachment=True)
+            else:
+                raise server_exception.MoodleBotError("Get page resourse file fail!")
+        else:
+            raise server_exception.InvalidRequestMethod()
+    except Exception as e:
+        flask_logger.error(str(e))
+        return get_exception_json_return(str(e))
     
+
+    
+
 if __name__ == '__main__':
     app.run(host="0.0.0.0", debug=True)
