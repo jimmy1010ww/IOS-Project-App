@@ -17,3 +17,13 @@ class MoodleResponseError(Exception):
     def __init__(self, bot_id:int):
         message = "MoodleBot response error: {}".format(bot_id)
         super().__init__(message)
+
+class MoodleDownloadFileFailed(Exception):
+    def __init__(self, bot_id:int):
+        message = "MoodleBot download file failed: {}".format(bot_id)
+        super().__init__(message)
+
+class MoodleGetPageResourceFailed(Exception):
+    def __init__(self, bot_id:int):
+        message = "MoodleBot get page resource failed: {}".format(bot_id)
+        super().__init__(message)
